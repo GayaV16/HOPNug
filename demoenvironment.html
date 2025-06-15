@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>File Upload</title>
+  <style>
+    #success-message { color: green; display: none; margin-top: 10px; }
+    #error-message   { color: red;   display: none; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Upload a File</h2>
+
+  <!-- Using a hidden iframe to avoid a full page refresh -->
+  <form id="uploadForm"
+        action="/upload"
+        method="post"
+        enctype="multipart/form-data"
+        target="uploadTarget"
+        onsubmit="return validateFile();">
+
+    <label for="file">Choose file:</label>
+    <input type="file"
+           id="file"
+           name="file"
+           accept=".png,.jpg,.jpeg,.pdf"
+           required>
+
+    <br><br>
+    <input type="submit" value="Upload">
+  </form>
+
+  <div id="success-message">File uploaded successfully!</div>
+  <div id="error-message"></div>
+
+  <!-- Hidden iframe that receives the server response -->
+  <iframe name="uploadTarget" style="display:none;"></iframe>
+
+  <script>
+    const fileInput    = document.getElementById('file');
+    const successDiv   = document.getElementById('success-message');
+    const errorDiv     = document.getElementById('error-message');
+    const maxSizeBytes = 5 * 1024 * 1024;           // 5 MB
+    const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf'];
+
+    // Validate as soon as the user picks a file
+    fileInput.addEventListener('change', validateFile);
+
+    function validateFile(event) {
+      // Hide old messages
+      successDiv.style.display = 'none';
+      errorDiv.style.display   = 'none';
+
+      // Allow calls from both the change event and the form’s onsubmit
+      const files = fileInput.files;
+      if (!files.length) {
+        return false;                          // No file selected
+      }
+
+      const file = files[0];
+
+      // Check MIME type
+      if (!allowedTypes.includes(file.type)) {
+        showError('Only PNG, JPG, or PDF files are allowed.');
+        return false;
+      }
+
+      // Check file size
+      if (file.size > maxSizeBytes) {
+        showError('File must be smaller than 5MB.');
+        return false;
+      }
+
+      // If called from the change event, no further action needed
+      if (event && event.type === 'change') {
+        return true;
+      }
+
+      // Passed checks in onsubmit; show success message after a short delay
+      setTimeout(() => {
+        successDiv.style.display = 'block';
+      }, 1000);
+
+      return true;   // Let the form submit
+    }
+
+    function showError(msg) {
+      errorDiv.textContent = msg;
+      errorDiv.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vendor Payment Form</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 1rem; }
+    form { max-width: 400px; margin: auto; border: 1px solid #ccc; padding: 1rem; border-radius: 6px; }
+    .field { margin-bottom: 1rem; }
+    label { display: block; font-weight: bold; margin-bottom: 0.2rem; }
+    input, select { width: 100%; padding: 6px; box-sizing: border-box; }
+    .error { color: red; font-size: 0.9em; margin-top: 0.2rem; display: none; }
+    #success-box { color: green; display: none; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+
+<h2>Vendor Payment Form</h2>
+
+<!--  NOTE the novalidate attribute ↓↓↓ -->
+<form id="vendorForm" novalidate onsubmit="return validateForm();">
+  <div class="field">
+    <label for="vendor">Vendor Name *</label>
+    <input type="text" id="vendor" name="vendor">
+    <div class="error" id="vendor-error"></div>
+  </div>
+
+  <div class="field">
+    <label for="amount">Amount (positive float) *</label>
+    <input type="number" id="amount" name="amount" step="0.01" min="0.01">
+    <div class="error" id="amount-error"></div>
+  </div>
+
+  <div class="field">
+    <label for="date">Date (dd/mm/yyyy, not future) *</label>
+    <input type="text" id="date" name="date" placeholder="dd/mm/yyyy">
+    <div class="error" id="date-error"></div>
+  </div>
+
+  <div class="field">
+    <label for="status">Status *</label>
+    <select id="status" name="status">
+      <option value="">--Select Status--</option>
+      <option value="paid">Paid</option>
+      <option value="pending">Pending</option>
+    </select>
+    <div class="error" id="status-error"></div>
+  </div>
+
+  <button type="submit">Submit</button>
+
+  <div id="success-box">Form submitted successfully!</div>
+</form>
+
+<script>
+  function parseDMY(dmy) {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dmy);
+    if (!m) return null;
+    const [ , dd, mm, yyyy ] = m;
+    const date = new Date(yyyy, mm - 1, dd);
+    return (date.getDate() == dd && date.getMonth() == mm - 1) ? date : null;
+  }
+
+  function showFieldError(id, msg) {
+    const el = document.getElementById(id + '-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function clearErrors() {
+    document.querySelectorAll('.error').forEach(e => { e.textContent = ''; e.style.display = 'none'; });
+    document.getElementById('success-box').style.display = 'none';
+  }
+
+  function validateForm() {
+    clearErrors();
+    let ok = true;
+
+    const vendor = document.getElementById('vendor').value.trim();
+    const amountStr = document.getElementById('amount').value.trim();
+    const dateStr = document.getElementById('date').value.trim();
+    const status  = document.getElementById('status').value;
+
+    // Vendor
+    if (!vendor) {
+      showFieldError('vendor', 'Vendor name cannot be empty.');
+      ok = false;
+    } else if (!/^[A-Za-z\s]+$/.test(vendor)) {
+      showFieldError('vendor', 'Vendor name must use letters and spaces only.');
+      ok = false;
+    }
+
+    // Amount
+    if (!amountStr) {
+      showFieldError('amount', 'Amount cannot be empty.');
+      ok = false;
+    } else {
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount) || amount <= 0) {
+        showFieldError('amount', 'Amount must be a positive number greater than 0.');
+        ok = false;
+      }
+    }
+
+    // Date
+    if (!dateStr) {
+      showFieldError('date', 'Date cannot be empty.');
+      ok = false;
+    } else {
+      const dateObj = parseDMY(dateStr);
+      if (!dateObj) {
+        showFieldError('date', 'Date must be in dd/mm/yyyy format.');
+        ok = false;
+      } else {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (dateObj > today) {
+          showFieldError('date', 'Date cannot be in the future.');
+          ok = false;
+        }
+      }
+    }
+
+    // Status
+    if (!status) {
+      showFieldError('status', 'Please select a status.');
+      ok = false;
+    }
+
+    if (ok) {
+      document.getElementById('success-box').style.display = 'block';
+    }
+
+    return false; // prevent actual form submission (for demo)
+  }
+</script>
+
+
+</body>
+</html>
